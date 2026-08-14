@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Quick Filler</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        form {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        #status {
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        .pagina {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .dia {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f5f5f5;
+        }
+
+        .horario {
+            margin-left: 20px;
+        }
+
+        .erro {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Quick Filler</h1>
+
+    <h2>Transcrição de Holerites e Cartões de Ponto</h2>
+
+    <form id="formulario">
+
+        <label for="arquivo">
+            Selecione o PDF:
+        </label>
+
+        <br><br>
+
+        <input
+            type="file"
+            id="arquivo"
+            name="arquivo"
+            accept=".pdf"
+            required
+        >
+
+        <br><br>
+
+        <button type="submit">
+            Enviar PDF
+        </button>
+
+    </form>
+
+    <div id="status"></div>
+
+    <div id="resultado"></div>
+
+
+    <script>
+
+        const formulario = document.getElementById("formulario");
+        const status = document.getElementById("status");
+        const resultado = document.getElementById("resultado");
+
+        formulario.addEventListener("submit", async function(evento) {
+
+            evento.preventDefault();
+
+            const arquivo = document.getElementById("arquivo").files[0];
+
+            if (!arquivo) {
+                status.textContent = "Selecione um PDF.";
+                return;
+            }
+
+            status.className = "";
+            status.textContent = "Processando PDF...";
+            resultado.innerHTML = "";
+
+            const dadosFormulario = new FormData();
+
+            dadosFormulario.append("arquivo", arquivo);
+
+            try {
+
+                const resposta = await fetch("/upload", {
+                    method: "POST",
+                    body: dadosFormulario
+                });
+
+                const dados = await resposta.json();
+
+                if (!resposta.ok) {
+                    throw new Error("Erro ao processar o PDF.");
+                }
+
+                status.textContent = dados.mensagem;
+
+                mostrarResultado(dados);
+
+            } catch (erro) {
+
+                status.textContent = "Erro ao processar o PDF.";
+                status.className = "erro";
+
+                console.error(erro);
+            }
+
+        });
+
+
+        function mostrarResultado(dados) {
+
+            resultado.innerHTML = "";
+
+            dados.paginas.forEach(function(pagina) {
+
+                const divPagina = document.createElement("div");
+
+                divPagina.className = "pagina";
+
+                divPagina.innerHTML = `
+                    <h2>Página ${pagina.page}</h2>
+                `;
+
+                pagina.days.forEach(function(dia) {
+
+                    const divDia = document.createElement("div");
+
+                    divDia.className = "dia";
+
+                    let html = `
+                        <strong>${dia.date_raw}</strong>
+                    `;
+
+                    if (dia.punches.length === 0) {
+
+                        html += `
+                            <div class="horario">
+                                Sem horários registrados
+                            </div>
+                        `;
+
+                    } else {
+
+                        dia.punches.forEach(function(batida) {
+
+                            html += `
+                                <div class="horario">
+                                    ${batida.kind}: ${batida.time_hhmm}
+                                </div>
+                            `;
+
+                        });
+
+                    }
+
+                    divDia.innerHTML = html;
+
+                    divPagina.appendChild(divDia);
+
+                });
+
+                resultado.appendChild(divPagina);
+
+            });
+
+        }
+
+    </script>
+
+</body>
+</html>
