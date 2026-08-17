@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 
 from app.parser import extrair_cartao_ponto
+from app.parser_payroll import extrair_payroll
+from app.ocr_payroll import extrair_ocr_pdf
 
 
 app = FastAPI()
@@ -44,17 +46,73 @@ async def upload_pdf(arquivo: UploadFile = File(...)):
 
     print("UPLOAD RECEBIDO:", arquivo.filename)
 
+    # ========================================================
+    # PAYROLL
+    # ========================================================
+
+    if arquivo.filename.lower().startswith("payroll"):
+
+        leitor = PdfReader(caminho)
+
+        resultado = []
+
+        for numero_pagina, pagina_pdf in enumerate(
+            leitor.pages,
+            start=1
+        ):
+
+            texto = pagina_pdf.extract_text() or ""
+
+            # Se o PDF não possui texto suficiente,
+            # usamos OCR.
+            if len(texto.strip()) < 100:
+
+                dados_ocr = extrair_ocr_pdf(caminho)
+
+                texto = dados_ocr[
+                    numero_pagina - 1
+                ]["texto"]
+
+            dados = extrair_payroll(
+                texto,
+                numero_pagina
+            )
+
+            resultado.extend(dados)
+
+        return {
+            "mensagem": "Payroll processado com sucesso!",
+            "arquivo": arquivo.filename,
+            "paginas": resultado
+        }
+
+
+    # ========================================================
+    # CARTÃO DE PONTO
+    # ========================================================
+
     leitor = PdfReader(caminho)
 
     resultado = []
 
-    for numero_pagina, pagina_pdf in enumerate(leitor.pages, start=1):
+    for numero_pagina, pagina_pdf in enumerate(
+        leitor.pages,
+        start=1
+    ):
 
         texto = pagina_pdf.extract_text() or ""
 
-        print("========== PÁGINA", numero_pagina, "==========")
+        print(
+            "========== PÁGINA",
+            numero_pagina,
+            "=========="
+        )
+
         print(texto)
-        print("==============================================")
+
+        print(
+            "=============================================="
+        )
 
         dados = extrair_cartao_ponto(
             texto,
